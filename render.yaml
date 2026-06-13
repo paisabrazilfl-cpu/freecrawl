@@ -1,0 +1,64 @@
+services:
+  - type: web
+    name: freecrawl-api
+    env: docker
+    dockerfilePath: ./Dockerfile
+    dockerCommand: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    region: oregon
+    plan: starter
+    branch: main
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: freecrawl-db
+          property: connectionString
+      - key: REDIS_URL
+        fromRedis:
+          name: freecrawl-redis
+          property: connectionString
+      - key: MAX_CONCURRENCY
+        value: "5"
+      - key: REQUEST_TIMEOUT
+        value: "30"
+      - key: MAX_CRAWL_PAGES
+        value: "500"
+      - key: MAX_CRAWL_DEPTH
+        value: "5"
+
+  - type: worker
+    name: freecrawl-worker
+    env: docker
+    dockerfilePath: ./Dockerfile
+    dockerCommand: rq worker crawl --url $REDIS_URL
+    region: oregon
+    plan: starter
+    branch: main
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: freecrawl-db
+          property: connectionString
+      - key: REDIS_URL
+        fromRedis:
+          name: freecrawl-redis
+          property: connectionString
+      - key: MAX_CONCURRENCY
+        value: "5"
+      - key: REQUEST_TIMEOUT
+        value: "30"
+
+databases:
+  - name: freecrawl-db
+    region: oregon
+    plan: basic_256mb
+    databaseName: freecrawl
+    user: freecrawl
+
+redis:
+  - name: freecrawl-redis
+    region: oregon
+    plan: free
+    maxmemoryPolicy: allkeys-lru
