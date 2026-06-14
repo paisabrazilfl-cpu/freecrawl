@@ -35,6 +35,24 @@ services:
     volumes:
       - .:/app
 
+  # Wakes up every 10 minutes (loop mode, since Compose has no native cron)
+  # to heartbeat, keep the API warm, and reap stalled crawl jobs.
+  cron:
+    build: .
+    command: python -m app.cron --loop
+    environment:
+      DATABASE_URL: postgresql://freecrawl:freecrawl@postgres:5432/freecrawl
+      REDIS_URL: redis://redis:6379/0
+      SELF_URL: http://api:8000
+      CRON_INTERVAL_SECONDS: "600"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+
   postgres:
     image: postgres:16-alpine
     environment:
